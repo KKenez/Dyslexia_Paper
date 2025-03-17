@@ -6,6 +6,108 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# seed was 101git branch -D main
+set.seed(10101)
 
+library(dplyr)
+library(brms)
+library(ggplot2)
+library(tidyr)
+library(glue) 
+library(caret)
+library(tidyverse)
+library(randomForest)
+library(caTools)
+library(bayesplot)
+library(glmnet)
+library(here)
+```
+## Data
 
+Two sources of data are available: The original data, collected through the use of computers, and a second source, collected on tablets with a modified game. (The game had less questions.) No attempt has been made yet to use both datasets; I abandoned my efforts after preliminary testing showed no real difference in performance when I included the secondary dataset. However, I think with a bit more work, perhaps a better imputation method, I could find a way to exploit the information contained in the secondary dataset.
+
+```{r}
+data <- read.csv(here("data", "Dyt-desktop.csv"), sep=";", dec=".", header=TRUE)
+
+# Accuracy and Missrate are not accurate in many cases; I fix it here
+for (i in 1:32) {
+  accuracy_col <- paste0("Accuracy", i)
+  missrate_col <- paste0("Missrate", i)
+  hits_col <- paste0("Hits", i)
+  clicks_col <- paste0("Clicks", i)
+  misses_col <- paste0("Misses", i)
+  data[[accuracy_col]] <- ifelse(data[[clicks_col]] == 0, 0, data[[hits_col]] / data[[clicks_col]])
+  data[[missrate_col]] <- ifelse(data[[clicks_col]] == 0, 00, data[[misses_col]] / data[[clicks_col]])
+}
+
+# Changing Gender column to Female column
+data$Female <- ifelse(data$Gender == "Male", "Yes", "No")
+data$Gender <- NULL
+
+# Factorizing the categorical variables
+data$Female <- factor(data$Female, levels = c("No", "Yes"))
+data$Nativelang <- factor(data$Nativelang, levels = c("No", "Yes"))
+data$Otherlang <- factor(data$Otherlang, levels = c("No", "Yes"))
+data$Dyslexia <- factor(data$Dyslexia, levels = c("No", "Yes"))
+
+# Train-test split
+sample = sample.split(data[,1], SplitRatio = 0.8)
+traintemp = subset(data, sample == TRUE) # this is training and validation, before their split
+testing  = subset(data, sample == FALSE)
+
+# Train-validation split
+sample = sample.split(traintemp[,1], SplitRatio = 0.75)
+training = subset(traintemp, sample == TRUE)
+validation  = subset(traintemp, sample == FALSE)
+```
+
+Here is how the data looks like:
+```{r echo = FALSE}
+head(data[, 1:12], 3)
+```
+
+```{r echo = FALSE}
+# Histogram for 'Age' column
+ggplot(data, aes(x = Age)) + 
+  geom_histogram(binwidth = 1, fill = "skyblue", color = "black", alpha = 0.7) +
+  labs(title = "Histogram of Age", x = "Age", y = "Count") +
+  theme_minimal()
+
+# Count the cases of Dyslexia = "Yes"
+dyslexia_yes <- sum(data$Dyslexia == "Yes")
+dyslexia_no <- sum(data$Dyslexia == "No")
+cat("Number of children with Dyslexia:", dyslexia_yes, "\n")
+cat("Number of children without Dyslexia:", dyslexia_no, "\n")
+```
+This is the code I used to standardise. In the thesis I did not use standardised data; I could not get better model results. This is strange since one would think the shrinkage priors would do better with standardised data. 
+
+```{r}
+exclude_columns <- c("Female", "Nativelang", "Otherlang", "Tablet", "Dyslexia")
+columns_to_standardize <- setdiff(names(training), exclude_columns)
+
+# Using the mean and sd of the training subset to not get data leakage
+train_mean <- sapply(training[, columns_to_standardize], mean)
+train_sd <- sapply(training[, columns_to_standardize], sd)
+
+# Standardising the training, validation and testing data
+training_scaled <- training
+training_scaled[, columns_to_standardize] <- scale(training[, columns_to_standardize], center = train_mean, scale = train_sd)
+
+validation_scaled <- validation
+validation_scaled[, columns_to_standardize] <- scale(validation[, columns_to_standardize], center = train_mean, scale = train_sd)
+
+testing_scaled <- testing
+testing_scaled[, columns_to_standardize] <- scale(testing[, columns_to_standardize], center = train_mean, scale = train_sd)
+```
+
+```{r}
+write.csv(data, here("data", "data.csv"), row.names = FALSE)
+write.csv(traintemp, here("data", "traintemp.csv"), row.names = FALSE)
+write.csv(training, here("data", "training.csv"), row.names = FALSE)
+write.csv(testing, here("data", "testing.csv"), row.names = FALSE)
+write.csv(validation, here("data", "validation.csv"), row.names = FALSE)
+write.csv(training_scaled, here("data", "training_scaled.csv"), row.names = FALSE)
+write.csv(testing_scaled, here("data", "testing_scaled.csv"), row.names = FALSE)
+write.csv(validation_scaled, here("data", "validation_scaled.csv"), row.names = FALSE)
 ```
