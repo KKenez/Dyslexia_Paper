@@ -7,7 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-# seed was 101
+# seed was 101git branch -D main
 set.seed(10101)
 
 library(dplyr)
