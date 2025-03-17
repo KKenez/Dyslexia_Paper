@@ -1,0 +1,241 @@
+---
+title: "Dyslexia_Paper_Code"
+author: "Kenéz"
+date: "2025-02-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# seed was 101
+set.seed(10101)
+
+library(dplyr)
+library(brms)
+library(ggplot2)
+library(tidyr)
+library(glue) 
+library(caret)
+library(tidyverse)
+library(randomForest)
+library(caTools)
+library(bayesplot)
+library(glmnet)
+library(here)
+
+options(mc.cores = parallel::detectCores()) # Paralellize if possible
+options(brms.file_refit = "on_change") # Save the files if the model has changed
+```
+
+# Code for the Dyslexia Paper
+
+## Data
+
+Two sources of data are available: The original data, collected through the use of computers, and a second source, collected on tablets with a modified game. (The game had less questions.) No attempt has been made yet to use both datasets; I abandoned my efforts after preliminary testing showed no real difference in performance when I included the secondary dataset. However, I think with a bit more work, perhaps a better imputation method, I could find a way to exploit the information contained in the secondary dataset.
+
+```{r}
+data <- read.csv(here("data", "Dyt-desktop.csv"), sep=";", dec=".", header=TRUE)
+
+# Accuracy and Missrate are not accurate in many cases; I fix it here
+for (i in 1:32) {
+  accuracy_col <- paste0("Accuracy", i)
+  missrate_col <- paste0("Missrate", i)
+  hits_col <- paste0("Hits", i)
+  clicks_col <- paste0("Clicks", i)
+  misses_col <- paste0("Misses", i)
+  data[[accuracy_col]] <- ifelse(data[[clicks_col]] == 0, 0, data[[hits_col]] / data[[clicks_col]])
+  data[[missrate_col]] <- ifelse(data[[clicks_col]] == 0, 00, data[[misses_col]] / data[[clicks_col]])
+}
+
+# Changing Gender column to Female column
+data$Female <- ifelse(data$Gender == "Male", "Yes", "No")
+data$Gender <- NULL
+
+# Factorizing the categorical variables
+data$Female <- factor(data$Female, levels = c("No", "Yes"))
+data$Nativelang <- factor(data$Nativelang, levels = c("No", "Yes"))
+data$Otherlang <- factor(data$Otherlang, levels = c("No", "Yes"))
+data$Dyslexia <- factor(data$Dyslexia, levels = c("No", "Yes"))
+
+# Train-test split
+sample = sample.split(data[,1], SplitRatio = 0.8)
+traintemp = subset(data, sample == TRUE)
+testing  = subset(data, sample == FALSE)
+
+# Train-validation split
+sample = sample.split(traintemp[,1], SplitRatio = 0.75)
+training = subset(traintemp, sample == TRUE)
+validation  = subset(traintemp, sample == FALSE)
+```
+
+## Bayesian Modelling
+
+```{r}
+# BAYESIAN MODEL WITH REG HORSESHOE PRIOR AND UNINFORMATIVE PRIORS
+
+# Specifying formula
+formula <- bf(Dyslexia ~ a + b, nl = TRUE) +
+  lf(a ~ Clicks1 + Hits1 + Misses1 + Score1 + Accuracy1 + Missrate1 + Clicks2 + Hits2 + Misses2 + Score2 + Accuracy2 + Missrate2 + Clicks3 + Hits3 + Misses3 + Score3 + Accuracy3 + Missrate3 + Clicks4 + Hits4 + Misses4 + Score4 + Accuracy4 + Missrate4 + Clicks5 + Hits5 + Misses5 + Score5 + Accuracy5 + Missrate5 + Clicks6 + Hits6 + Misses6 + Score6 + Accuracy6 + Missrate6 + Clicks7 + Hits7 + Misses7 + Score7 + Accuracy7 + Missrate7 + Clicks8 + Hits8 + Misses8 + Score8 + Accuracy8 + Missrate8 + Clicks9 + Hits9 + Misses9 + Score9 + Accuracy9 + Missrate9 + Clicks10 + Hits10 + Misses10 + Score10 + Accuracy10 + Missrate10 + Clicks11 + Hits11 + Misses11 + Score11 + Accuracy11 + Missrate11 + Clicks12 + Hits12 + Misses12 + Score12 + Accuracy12 + Missrate12 + Clicks13 + Hits13 + Misses13 + Score13 + Accuracy13 + Missrate13 + Clicks14 + Hits14 + Misses14 + Score14 + Accuracy14 + Missrate14 + Clicks15 + Hits15 + Misses15 + Score15 + Accuracy15 + Missrate15 + Clicks16 + Hits16 + Misses16 + Score16 + Accuracy16 + Missrate16 + Clicks17 + Hits17 + Misses17 + Score17 + Accuracy17 + Missrate17 + Clicks18 + Hits18 + Misses18 + Score18 + Accuracy18 + Missrate18 + Clicks19 + Hits19 + Misses19 + Score19 + Accuracy19 + Missrate19 + Clicks20 + Hits20 + Misses20 + Score20 + Accuracy20 + Missrate20 + Clicks21 + Hits21 + Misses21 + Score21 + Accuracy21 + Missrate21 + Clicks22 + Hits22 + Misses22 + Score22 + Accuracy22 + Missrate22 + Clicks23 + Hits23 + Misses23 + Score23 + Accuracy23 + Missrate23 + Clicks24 + Hits24 + Misses24 + Score24 + Accuracy24 + Missrate24 + Clicks25 + Hits25 + Misses25 + Score25 + Accuracy25 + Missrate25 + Clicks26 + Hits26 + Misses26 + Score26 + Accuracy26 + Missrate26 + Clicks27 + Hits27 + Misses27 + Score27 + Accuracy27 + Missrate27 + Clicks28 + Hits28 + Misses28 + Score28 + Accuracy28 + Missrate28 + Clicks29 + Hits29 + Misses29 + Score29 + Accuracy29 + Missrate29 + Clicks30 + Hits30 + Misses30 + Score30 + Accuracy30 + Missrate30 + Clicks31 + Hits31 + Misses31 + Score31 + Accuracy31 + Missrate31 + Clicks32 + Hits32 + Misses32 + Score32 + Accuracy32, center = TRUE) +
+  lf(b ~ 0 + Nativelang + Otherlang + Age + Female, cmc = FALSE)
+
+# Specifying priors
+priors <- prior(horseshoe(1), class = "b", nlpar = "a")
+
+# Specifying the model
+start_time <- Sys.time()
+
+bayesian_model <- brm(formula = formula,
+           prior = priors,
+           family = bernoulli(link = 'logit'),
+           data = training
+           )
+
+end_time <- Sys.time()
+runtime <- end_time - start_time
+
+writeLines(runtime, "runtime.txt")
+saveRDS(bayesian_model, file = "bayesian_model.rds")
+```
+
+## Logistic Regression Modelling  
+
+```{r}
+# Prepare data for glmnet (training set)
+x_train <- model.matrix(Dyslexia ~ . - 1, data = training)
+y_train <- training$Dyslexia
+
+# Fit logistic regression with L1/L2 regularization
+logistic_model <- cv.glmnet(x_train, y_train, family = "binomial", alpha = 0.5)
+
+# Save the model
+saveRDS(logistic_model, file = "logistic_model.rds")
+```
+
+## Random Forest Modelling
+
+```{r}
+# Build the Random Forest model with weighted classes
+rf_model <- train(
+  Dyslexia ~ ., 
+  data = training, 
+  method = "rf",
+  ntree = 200, 
+  tuneGrid = data.frame(mtry = floor(sqrt(ncol(training) - 1))), 
+  weights = ifelse(training$Dyslexia == 1, 0.892, 0.108) # adjust based on dyslexia prevalence, the authors used these values
+)
+
+# Save the model
+saveRDS(rf_model, file = "rf_model.rds")
+```
+
+## Decision Curve Analysis
+
+### Getting models' predictions
+
+```{r}
+
+# We need this for the results
+Dyslexia_binary <- ifelse(validation$Dyslexia == "Yes", 1, 0)
+
+# ALL-TREATMENT CASE
+all_treatment <- data.frame(
+  probabilities = 1,
+  outcomes = Dyslexia_binary)
+
+# BAYESIAN MODEL
+#bayesian_model <- readRDS("bayesian_model.rds")
+bayesian_model_predicted_probabilities <- fitted(bayesian_model, newdata = validation)
+bayesian_model_probabilities <- bayesian_model_predicted_probabilities[, 1]
+
+bayesian_model_predictions <- data.frame(
+  probabilities = model_1_probabilities,
+  outcomes = Dyslexia_binary
+)
+
+# LOGISTIC MODEL
+#logistic_model <- readRDS("logistic_model.rds")
+probabilities <- predict(logistic_model, newdata = validation, type = "response")
+probabilities <- unname(probabilities)
+
+log_model_predictions <- data.frame(
+  probabilities = probabilities,
+  outcomes = Dyslexia_binary
+)
+
+# RANDOM FOREST MODEL
+#random_forest_model <- readRDS("random_forest_model.rds")
+probabilities <- predict(random_forest_model, newdata = validation, type = "prob")[, 2]
+
+rf_model_predictions <- data.frame(
+  probabilities = probabilities,
+  outcomes = Dyslexia_binary
+)
+
+```
+
+### Doing DCA
+
+Dca is done as follows: First I get the models to assign a likelihood for dyslexia for each entry in the dataset being used for predictions. Then I pair the resulting predictions with actual 1-0 outcomes. After this, I make a list data_list out of all these dataframes, collecting all models' predictions in a single entity. I then run the code, which applies my function calculate_net_benefits. This results in plot_data, which contains the net benefits of each model for each threshold. This is then plotted.
+ 
+```{r}
+# Getting net benefit values
+
+# List of dataframes to compare, each with probabilities and outcomes
+data_list <- list(all_treatment = all_treatment, bayesian_model = bayesian_model_predictions, log_model = log_model_predictions, rf_model = rf_model_predictions) # Add more as needed
+thresholds <- seq(0, 1, by = 0.01)
+
+# Calculate net benefits for each dataframe
+plot_data <- bind_rows(
+  lapply(names(data_list), function(name) {
+    df <- data_list[[name]]
+    net_benefit_df <- calculate_net_benefits(df = df, probabilities_column = "probabilities", outcomes_column = "outcomes") # Default thresholds
+    net_benefit_df$Model <- name # Add a model name for plotting
+    net_benefit_df
+  })
+)
+
+# Filter out NA values resulting from extreme thresholds
+plot_data <- plot_data %>% filter(!is.na(NetBenefit))
+```
+
+### Plotting
+
+```{r}
+# Comparing the models
+DCA1 <- ggplot(plot_data, aes(x = Threshold, y = NetBenefit, color = Model)) +
+  geom_line(size = 1) +
+  labs(
+    title = "Net Benefit Curves for\nModelling Paradigm Comparison",
+    x = "Threshold",
+    y = "Net Benefit"
+    ) +
+  labs(x = "Decision Threshold", y = "Net Benefit") +
+  ylim(0, 0.15) + 
+  xlim(0, 0.3) +
+   scale_color_manual(
+   name = "Modelling\nmethod:",
+   labels = c("AllTreatment", "SLR", "RF", "BLR"),
+   values = c("skyblue", "forestgreen", "darkslateblue", "firebrick") 
+    ) +
+  theme(axis.text = element_text(size = 12),
+          plot.title = element_text(size = 16, hjust = 0.5),
+          panel.grid.major = element_line(color = "grey75", size = 0.5),
+          legend.title = element_text(size = 14),
+          legend.text = element_text(size = 12),
+          legend.direction = "vertical",
+          legend.position = "right",
+          legend.background = element_blank(),
+          axis.title.y = element_text(size = 14, face = "italic"),
+          axis.title.x = element_text(size = 14, face = "italic"),
+          panel.border = element_rect(color = "grey50", fill = NA, size = 0.5)
+          ) +
+  expand_limits(x = 0, y = 0) +
+  coord_cartesian(expand = FALSE, clip = "off") +
+  guides(color = guide_legend(override.aes = list(size = 3)))
+
+DCA1
+```
+
+## What's missing from this notebook
+
+The models are only evaluated with DCA so far. Also, I didn't include any additional diagnostics.
