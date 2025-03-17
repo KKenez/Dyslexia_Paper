@@ -101,6 +101,7 @@ testing_scaled <- testing
 testing_scaled[, columns_to_standardize] <- scale(testing[, columns_to_standardize], center = train_mean, scale = train_sd)
 ```
 
+This code chunk writes the subsets to the data folder, to be read later. I read somewhere that data is usually not tracked by version control so I wont track it.
 ```{r}
 write.csv(data, here("data", "data.csv"), row.names = FALSE)
 write.csv(traintemp, here("data", "traintemp.csv"), row.names = FALSE)
