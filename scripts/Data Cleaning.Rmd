@@ -42,14 +42,18 @@ for (i in 1:32) {
 }
 
 # Changing Gender column to Female column
-data$Female <- ifelse(data$Gender == "Male", "Yes", "No")
+data$Female <- ifelse(data$Gender == "Female", "Yes", "No")
 data$Gender <- NULL
 
-# Factorizing the categorical variables
-data$Female <- factor(data$Female, levels = c("No", "Yes"))
-data$Nativelang <- factor(data$Nativelang, levels = c("No", "Yes"))
-data$Otherlang <- factor(data$Otherlang, levels = c("No", "Yes"))
-data$Dyslexia <- factor(data$Dyslexia, levels = c("No", "Yes"))
+# Renaming columns to better reflect what they are
+colnames(data)[colnames(data) == "Otherlang"] <- "Failedclass"
+colnames(data)[colnames(data) == "Nativelang"] <- "Monolingual"
+
+# Sum coding the categorical variables, making Dyslexia into a binary numerical variable.
+data$Female <- ifelse(data$Female == "Yes", 1, -1)
+data$Monolingual <- ifelse(data$Monolingual == "Yes", 1, -1)
+data$Failedclass <- ifelse(data$Failedclass == "Yes", 1, -1)
+data$Dyslexia <- ifelse(data$Dyslexia == "Yes", 1, 0)
 
 # Train-test split
 sample = sample.split(data[,1], SplitRatio = 0.8)
@@ -80,10 +84,11 @@ dyslexia_no <- sum(data$Dyslexia == "No")
 cat("Number of children with Dyslexia:", dyslexia_yes, "\n")
 cat("Number of children without Dyslexia:", dyslexia_no, "\n")
 ```
-This is the code I used to standardise. In the thesis I did not use standardised data; I could not get better model results. This is strange since one would think the shrinkage priors would do better with standardised data. 
+
+This next chunk deals with standardisation and sum coding.
 
 ```{r}
-exclude_columns <- c("Female", "Nativelang", "Otherlang", "Tablet", "Dyslexia")
+exclude_columns <- c("Female", "Monolingual", "Failedclass", "Tablet", "Dyslexia") #Tablet is a remnant
 columns_to_standardize <- setdiff(names(training), exclude_columns)
 
 # Using the mean and sd of the training subset to not get data leakage
@@ -111,4 +116,8 @@ write.csv(validation, here("data", "validation.csv"), row.names = FALSE)
 write.csv(training_scaled, here("data", "training_scaled.csv"), row.names = FALSE)
 write.csv(testing_scaled, here("data", "testing_scaled.csv"), row.names = FALSE)
 write.csv(validation_scaled, here("data", "validation_scaled.csv"), row.names = FALSE)
+```
+
+```{r}
+head(training_scaled)
 ```
