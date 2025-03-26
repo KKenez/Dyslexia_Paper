@@ -1,0 +1,104 @@
+---
+title: "Bayesian Modelling"
+author: "Kenéz"
+date: "2025-03-25"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# seed was 101git branch -D main
+set.seed(10101)
+
+library(dplyr)
+library(brms)
+library(ggplot2)
+library(tidyr)
+library(glue) 
+library(caret)
+library(tidyverse)
+library(randomForest)
+library(caTools)
+library(bayesplot)
+library(glmnet)
+library(here)
+library(priorsense)
+```
+
+In this notebook I will make some Bayesian models and compare them, to hopefully establish a set of good modelling choices.
+
+1 -- I test whether Gelman priors on non-game predictors are fitting or are too informative.
+
+```{r}
+# Specifying formula and priors
+formula <- bf(Dyslexia ~ Female + Monolingual + Failedclass + Age)
+
+sd_Dyslexia <- sd(training_scaled$Dyslexia)
+sd_Female <- sd(training_scaled$Female)
+sd_Monolingual <- sd(training_scaled$Monolingual)
+sd_Failedclass <- sd(training_scaled$Failedclass)
+sd_Age <- sd(training_scaled$Age)
+
+
+priors <- c(
+  prior(normal(-2, 1), class = Intercept),
+  prior(normal(0, 2.5*0.3109777/0.9998264), class = b, coef = Female),
+  prior(normal(0, 2.5*0.3109777/0.8841844), class = b, coef = Monolingual),
+  prior(normal(0, 2.5*0.3109777/0.7845354), class = b, coef = Failedclass),
+  prior(normal(0, 2.5*0.3109777/1), class = b, coef = Age)
+#  prior(exponential(1/sd(training_scaled$Dyslexia)), class = sigma)
+)
+
+```
+
+```{r message = False }
+# Specifying, running the model
+
+start_time <- Sys.time()
+
+gelman_prior_check_model <- brm(formula = formula,
+           prior = priors,
+           family = bernoulli(link = 'logit'),
+           data = training_scaled
+           )
+end_time <- Sys.time()
+runtime <- end_time - start_time
+
+```
+```{r}
+# Seeing if there are any priors that are too strong.
+
+powerscale_sensitivity(gelman_prior_check_model)
+
+```
+Even though there the priorsense package warns of prior-data conflicts, I feel the priors are correct. We strongly suspect around 10% chance of dyslexia in each participant. The variance is high enough anyways.
+
+
+```{r}
+
+# Specifying formula
+formula <- bf(Dyslexia ~ a + b, nl = TRUE) +
+  lf(a ~ Clicks1 + Hits1 + Misses1 + Score1 + Accuracy1 + Missrate1 + Clicks2 + Hits2 + Misses2 + Score2 + Accuracy2 + Missrate2 + Clicks3 + Hits3 + Misses3 + Score3 + Accuracy3 + Missrate3 + Clicks4 + Hits4 + Misses4 + Score4 + Accuracy4 + Missrate4 + Clicks5 + Hits5 + Misses5 + Score5 + Accuracy5 + Missrate5 + Clicks6 + Hits6 + Misses6 + Score6 + Accuracy6 + Missrate6 + Clicks7 + Hits7 + Misses7 + Score7 + Accuracy7 + Missrate7 + Clicks8 + Hits8 + Misses8 + Score8 + Accuracy8 + Missrate8 + Clicks9 + Hits9 + Misses9 + Score9 + Accuracy9 + Missrate9 + Clicks10 + Hits10 + Misses10 + Score10 + Accuracy10 + Missrate10 + Clicks11 + Hits11 + Misses11 + Score11 + Accuracy11 + Missrate11 + Clicks12 + Hits12 + Misses12 + Score12 + Accuracy12 + Missrate12 + Clicks13 + Hits13 + Misses13 + Score13 + Accuracy13 + Missrate13 + Clicks14 + Hits14 + Misses14 + Score14 + Accuracy14 + Missrate14 + Clicks15 + Hits15 + Misses15 + Score15 + Accuracy15 + Missrate15 + Clicks16 + Hits16 + Misses16 + Score16 + Accuracy16 + Missrate16 + Clicks17 + Hits17 + Misses17 + Score17 + Accuracy17 + Missrate17 + Clicks18 + Hits18 + Misses18 + Score18 + Accuracy18 + Missrate18 + Clicks19 + Hits19 + Misses19 + Score19 + Accuracy19 + Missrate19 + Clicks20 + Hits20 + Misses20 + Score20 + Accuracy20 + Missrate20 + Clicks21 + Hits21 + Misses21 + Score21 + Accuracy21 + Missrate21 + Clicks22 + Hits22 + Misses22 + Score22 + Accuracy22 + Missrate22 + Clicks23 + Hits23 + Misses23 + Score23 + Accuracy23 + Missrate23 + Clicks24 + Hits24 + Misses24 + Score24 + Accuracy24 + Missrate24 + Clicks25 + Hits25 + Misses25 + Score25 + Accuracy25 + Missrate25 + Clicks26 + Hits26 + Misses26 + Score26 + Accuracy26 + Missrate26 + Clicks27 + Hits27 + Misses27 + Score27 + Accuracy27 + Missrate27 + Clicks28 + Hits28 + Misses28 + Score28 + Accuracy28 + Missrate28 + Clicks29 + Hits29 + Misses29 + Score29 + Accuracy29 + Missrate29 + Clicks30 + Hits30 + Misses30 + Score30 + Accuracy30 + Missrate30 + Clicks31 + Hits31 + Misses31 + Score31 + Accuracy31 + Missrate31 + Clicks32 + Hits32 + Misses32 + Score32 + Accuracy32, center = TRUE) +
+  lf(b ~ 0 + Nativelang + Otherlang + Age + Female, cmc = FALSE)
+
+# Specifying priors
+priors <- prior(horseshoe(1), class = "b", nlpar = "a")
+
+# Specifying the model
+start_time <- Sys.time()
+
+bayesian_model <- brm(formula = formula,
+           prior = priors,
+           family = bernoulli(link = 'logit'),
+           data = training
+           )
+
+end_time <- Sys.time()
+runtime <- end_time - start_time
+
+writeLines(runtime, "runtime.txt")
+saveRDS(bayesian_model, file = "bayesian_model.rds")
+```
+
+
+
