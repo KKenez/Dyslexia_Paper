@@ -7,8 +7,8 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-# seed was 101git branch -D main
-set.seed(10101)
+
+set.seed(1337)
 
 library(dplyr)
 library(brms)
@@ -23,6 +23,10 @@ library(bayesplot)
 library(glmnet)
 library(here)
 library(priorsense)
+
+log_file_with_path <- here::here("results", "runtime_log.txt")
+
+source(here::here("scripts", "functions.R"))
 ```
 
 In this notebook I will make some Bayesian models and compare them, to hopefully establish a set of good modelling choices.
@@ -53,36 +57,49 @@ priors <- c(
 
 ```{r message = False }
 # Specifying, running the model
-
+#TODO: Make runtime be saved in a file? a nicely accessible excel file would be nice. or something like that
 start_time <- Sys.time()
 
-gelman_prior_check_model <- brm(formula = formula,
+model_without_gamevariables <- brm(formula = formula,
            prior = priors,
            family = bernoulli(link = 'logit'),
            data = training_scaled
            )
-end_time <- Sys.time()
-runtime <- end_time - start_time
 
+end_time <- Sys.time()
+log_runtime(start_time, end_time, "model_without_gamevariables", log_file_with_path)
+
+saveRDS(bayesian_model, file = here("models", "bayesian_model.rds"))
 ```
+
 ```{r}
 # Seeing if there are any priors that are too strong.
 
 powerscale_sensitivity(gelman_prior_check_model)
-
 ```
-Even though there the priorsense package warns of prior-data conflicts, I feel the priors are correct. We strongly suspect around 10% chance of dyslexia in each participant. The variance is high enough anyways.
 
+No prior-data conflicts, were all good. :)
+
+2 -- The game variables part.
+
+Now that we have our non-game variables in good order, outfitted with nice priors, we can start trying to include the game variables as well.
 
 ```{r}
 
 # Specifying formula
 formula <- bf(Dyslexia ~ a + b, nl = TRUE) +
   lf(a ~ Clicks1 + Hits1 + Misses1 + Score1 + Accuracy1 + Missrate1 + Clicks2 + Hits2 + Misses2 + Score2 + Accuracy2 + Missrate2 + Clicks3 + Hits3 + Misses3 + Score3 + Accuracy3 + Missrate3 + Clicks4 + Hits4 + Misses4 + Score4 + Accuracy4 + Missrate4 + Clicks5 + Hits5 + Misses5 + Score5 + Accuracy5 + Missrate5 + Clicks6 + Hits6 + Misses6 + Score6 + Accuracy6 + Missrate6 + Clicks7 + Hits7 + Misses7 + Score7 + Accuracy7 + Missrate7 + Clicks8 + Hits8 + Misses8 + Score8 + Accuracy8 + Missrate8 + Clicks9 + Hits9 + Misses9 + Score9 + Accuracy9 + Missrate9 + Clicks10 + Hits10 + Misses10 + Score10 + Accuracy10 + Missrate10 + Clicks11 + Hits11 + Misses11 + Score11 + Accuracy11 + Missrate11 + Clicks12 + Hits12 + Misses12 + Score12 + Accuracy12 + Missrate12 + Clicks13 + Hits13 + Misses13 + Score13 + Accuracy13 + Missrate13 + Clicks14 + Hits14 + Misses14 + Score14 + Accuracy14 + Missrate14 + Clicks15 + Hits15 + Misses15 + Score15 + Accuracy15 + Missrate15 + Clicks16 + Hits16 + Misses16 + Score16 + Accuracy16 + Missrate16 + Clicks17 + Hits17 + Misses17 + Score17 + Accuracy17 + Missrate17 + Clicks18 + Hits18 + Misses18 + Score18 + Accuracy18 + Missrate18 + Clicks19 + Hits19 + Misses19 + Score19 + Accuracy19 + Missrate19 + Clicks20 + Hits20 + Misses20 + Score20 + Accuracy20 + Missrate20 + Clicks21 + Hits21 + Misses21 + Score21 + Accuracy21 + Missrate21 + Clicks22 + Hits22 + Misses22 + Score22 + Accuracy22 + Missrate22 + Clicks23 + Hits23 + Misses23 + Score23 + Accuracy23 + Missrate23 + Clicks24 + Hits24 + Misses24 + Score24 + Accuracy24 + Missrate24 + Clicks25 + Hits25 + Misses25 + Score25 + Accuracy25 + Missrate25 + Clicks26 + Hits26 + Misses26 + Score26 + Accuracy26 + Missrate26 + Clicks27 + Hits27 + Misses27 + Score27 + Accuracy27 + Missrate27 + Clicks28 + Hits28 + Misses28 + Score28 + Accuracy28 + Missrate28 + Clicks29 + Hits29 + Misses29 + Score29 + Accuracy29 + Missrate29 + Clicks30 + Hits30 + Misses30 + Score30 + Accuracy30 + Missrate30 + Clicks31 + Hits31 + Misses31 + Score31 + Accuracy31 + Missrate31 + Clicks32 + Hits32 + Misses32 + Score32 + Accuracy32, center = TRUE) +
-  lf(b ~ 0 + Nativelang + Otherlang + Age + Female, cmc = FALSE)
+  lf(b ~ 0 + Monolingual + Failedclass + Age + Female, cmc = FALSE)
 
-# Specifying priors
-priors <- prior(horseshoe(1), class = "b", nlpar = "a")
+# Specifying priors 
+#TODO: intercept prior normal(-2,1)
+priors <- c(
+  prior(horseshoe(1), class = "b", nlpar = "a"),
+  prior(normal(0, 2.5*0.3109777/0.9998264), coef = "Female", nlpar = "b"),
+  prior(normal(0, 2.5*0.3109777/0.8841844), coef = "Monolingual", nlpar = "b"),
+  prior(normal(0, 2.5*0.3109777/0.7845354), coef = "Failedclass", nlpar = "b"),
+  prior(normal(0, 2.5*0.3109777/1), coef = "Age", nlpar = "b")
+)
 
 # Specifying the model
 start_time <- Sys.time()
@@ -94,11 +111,56 @@ bayesian_model <- brm(formula = formula,
            )
 
 end_time <- Sys.time()
-runtime <- end_time - start_time
 
-writeLines(runtime, "runtime.txt")
-saveRDS(bayesian_model, file = "bayesian_model.rds")
+log_runtime(start_time, end_time, "m_allvariables_horseshoe_gelman", log_file_with_path)
+
+saveRDS(bayesian_model, file = here("models", "bayesian_model.rds"))
 ```
 
+The chunk below makes a confusion matrix for the model in question.
+
+```{r echo = False}
+model <- bayesian_model
+
+# Predict probabilities using `fitted`
+model_predicted_probabilities <- fitted(model, newdata = validation_scaled)
+predicted_probs <- model_predicted_probabilities[, 1]  # Extract the mean probabilities
+
+# Convert probabilities to binary predictions using a threshold (e.g., 0.24)
+predicted_classes <- ifelse(predicted_probs > 0.24, 1, 0)
+
+# Ensure `predicted_classes` and `validation$Dyslexia_binary` are factors with the same levels
+predicted_classes <- factor(predicted_classes, levels = c(0, 1))
+actual_classes <- factor(validation_scaled$Dyslexia, levels = c(0, 1))
+
+# Check lengths to make sure they match
+if (length(predicted_classes) != length(actual_classes)) {
+  stop("Length mismatch: Predicted length =", length(predicted_classes), 
+       "Actual length =", length(actual_classes))
+}
+
+# Create a confusion matrix
+library(caret)
+cm <- confusionMatrix(predicted_classes, actual_classes)
+
+# Print the confusion matrix
+print(cm)
+```
+3 -- Comparing the model with and without the game variables
+
+I'd like to know how useful the game variables are. To this end, I will compare two models with loo; one with the game variables and one without. The difference between their predictive performance will give us an idea as to how useful the game is.
+
+```{r}
+# Getting loo for each model
+loo_model1 <- loo(model_without_gamevariables)
+loo_model2 <- loo(bayesian_model)
+
+# Compare models using LOO
+comparison <- loo_compare(loo_model1, loo_model2)
+
+# Print the comparison
+print(comparison)
+```
+The bayesian model seems to do much better, so the game variables help a lot. :)
 
 
