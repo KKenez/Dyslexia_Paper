@@ -29,7 +29,7 @@ log_file_with_path <- here::here("results", "runtime_log.txt")
 source(here::here("scripts", "functions.R"))
 ```
 
-In this notebook I will make some Bayesian models and compare them, to hopefully establish a set of good modelling choices.
+In this notebook I will make some Bayesian models and compare them, to hopefully establish a set of good modelling choices. I will use the decision threshold 0.24.
 
 1 -- I test whether Gelman priors on non-game predictors are fitting or are too informative.
 
@@ -163,4 +163,194 @@ print(comparison)
 ```
 The bayesian model seems to do much better, so the game variables help a lot. :)
 
+4 -- Trying to get the model to perform better
 
+We've established that the model with game variables performs better. Therefore, our modelling paradigm can capture the variance there to some extent. However, apparently, a random forest would do better. Our objective therefore is to find a way to manipulate either the model specifications or the data in order to make the model perform better.
+
+I'll first start by doing some data manipulation and seeing if that makes a difference or not.
+
+4.1 -- Dropping misses
+
+Misses are perfectly explained by Hits and Clicks in theory. In reality somehow they are not, in our data.
+
+```{r}
+
+# Specifying formula
+formula <- bf(Dyslexia ~ a + b, nl = TRUE) +
+  lf(a ~ Clicks1 + Hits1 + Score1 + Accuracy1 + Missrate1 + Clicks2 + Hits2 + Score2 + Accuracy2 + Missrate2 + Clicks3 + Hits3 + Score3 + Accuracy3 + Missrate3 + Clicks4 + Hits4 + Score4 + Accuracy4 + Missrate4 + Clicks5 + Hits5 + Score5 + Accuracy5 + Missrate5 + Clicks6 + Hits6 + Score6 + Accuracy6 + Missrate6 + Clicks7 + Hits7 + Score7 + Accuracy7 + Missrate7 + Clicks8 + Hits8 + Score8 + Accuracy8 + Missrate8 + Clicks9 + Hits9 + Score9 + Accuracy9 + Missrate9 + Clicks10 + Hits10 + Score10 + Accuracy10 + Missrate10 + Clicks11 + Hits11 + Score11 + Accuracy11 + Missrate11 + Clicks12 + Hits12 + Score12 + Accuracy12 + Missrate12 + Clicks13 + Hits13 + Score13 + Accuracy13 + Missrate13 + Clicks14 + Hits14 + Score14 + Accuracy14 + Missrate14 + Clicks15 + Hits15 + Score15 + Accuracy15 + Missrate15 + Clicks16 + Hits16 + Score16 + Accuracy16 + Missrate16 + Clicks17 + Hits17 + Score17 + Accuracy17 + Missrate17 + Clicks18 + Hits18 + Score18 + Accuracy18 + Missrate18 + Clicks19 + Hits19 + Score19 + Accuracy19 + Missrate19 + Clicks20 + Hits20 + Score20 + Accuracy20 + Missrate20 + Clicks21 + Hits21 + Score21 + Accuracy21 + Missrate21 + Clicks22 + Hits22 + Score22 + Accuracy22 + Missrate22 + Clicks23 + Hits23 + Score23 + Accuracy23 + Missrate23 + Clicks24 + Hits24 + Score24 + Accuracy24 + Missrate24 + Clicks25 + Hits25 + Score25 + Accuracy25 + Missrate25 + Clicks26 + Hits26 + Score26 + Accuracy26 + Missrate26 + Clicks27 + Hits27 + Score27 + Accuracy27 + Missrate27 + Clicks28 + Hits28 + Score28 + Accuracy28 + Missrate28 + Clicks29 + Hits29 + Score29 + Accuracy29 + Missrate29 + Clicks30 + Hits30 + Score30 + Accuracy30 + Missrate30 + Clicks31 + Hits31 + Score31 + Accuracy31 + Missrate31 + Clicks32 + Hits32 + Score32 + Accuracy32 + Missrate32, center = TRUE) +
+lf(b ~ 0 + Monolingual + Failedclass + Age + Female, cmc = FALSE)
+
+# Specifying priors 
+#TODO: intercept prior normal(-2,1)
+priors <- c(
+  prior(horseshoe(1), class = "b", nlpar = "a"),
+  prior(normal(0, 2.5*0.3109777/0.9998264), coef = "Female", nlpar = "b"),
+  prior(normal(0, 2.5*0.3109777/0.8841844), coef = "Monolingual", nlpar = "b"),
+  prior(normal(0, 2.5*0.3109777/0.7845354), coef = "Failedclass", nlpar = "b"),
+  prior(normal(0, 2.5*0.3109777/1), coef = "Age", nlpar = "b")
+)
+
+# Specifying the model
+start_time <- Sys.time()
+
+bayesian_model_without_misses <- brm(formula = formula,
+           prior = priors,
+           family = bernoulli(link = 'logit'),
+           data = training
+           )
+
+end_time <- Sys.time()
+
+log_runtime(start_time, end_time, "m_allvariables_horseshoe_gelman_missesremoved", log_file_with_path)
+
+saveRDS(bayesian_model, file = here("models", "m_allvariables_horseshoe_gelman_missesremoved.rds"))
+```
+
+```{r, echo = FALSE}
+# Getting loo for each model
+loo_model1 <- loo(bayesian_model_without_misses)
+loo_model2 <- loo(bayesian_model)
+
+# Compare models using LOO
+comparison <- loo_compare(loo_model1, loo_model2)
+
+# Print the comparison
+print(comparison)
+```
+
+Conclusion: Dropping misses is not a good idea. There is some new information there.
+
+4.2 -- Dropping missrate
+
+Missrate is perfectly explained by Accuracy.
+
+```{r}
+
+# Specifying formula
+formula <- bf(Dyslexia ~ a + b, nl = TRUE) +
+  lf(a ~ Clicks1 + Hits1 + Misses1 + Score1 + Accuracy1 + Clicks2 + Hits2 + Misses2 + Score2 + Accuracy2 + Clicks3 + Hits3 + Misses3 + Score3 + Accuracy3 + Clicks4 + Hits4 + Misses4 + Score4 + Accuracy4 + Clicks5 + Hits5 + Misses5 + Score5 + Accuracy5 + Clicks6 + Hits6 + Misses6 + Score6 + Accuracy6 + Clicks7 + Hits7 + Misses7 + Score7 + Accuracy7 + Clicks8 + Hits8 + Misses8 + Score8 + Accuracy8 + Clicks9 + Hits9 + Misses9 + Score9 + Accuracy9 + Clicks10 + Hits10 + Misses10 + Score10 + Accuracy10 + Clicks11 + Hits11 + Misses11 + Score11 + Accuracy11 + Clicks12 + Hits12 + Misses12 + Score12 + Accuracy12 + Clicks13 + Hits13 + Misses13 + Score13 + Accuracy13 + Clicks14 + Hits14 + Misses14 + Score14 + Accuracy14 + Clicks15 + Hits15 + Misses15 + Score15 + Accuracy15 + Clicks16 + Hits16 + Misses16 + Score16 + Accuracy16 + Clicks17 + Hits17 + Misses17 + Score17 + Accuracy17 + Clicks18 + Hits18 + Misses18 + Score18 + Accuracy18 + Clicks19 + Hits19 + Misses19 + Score19 + Accuracy19 + Clicks20 + Hits20 + Misses20 + Score20 + Accuracy20 + Clicks21 + Hits21 + Misses21 + Score21 + Accuracy21 + Clicks22 + Hits22 + Misses22 + Score22 + Accuracy22 + Clicks23 + Hits23 + Misses23 + Score23 + Accuracy23 + Clicks24 + Hits24 + Misses24 + Score24 + Accuracy24 + Clicks25 + Hits25 + Misses25 + Score25 + Accuracy25 + Clicks26 + Hits26 + Misses26 + Score26 + Accuracy26 + Clicks27 + Hits27 + Misses27 + Score27 + Accuracy27 + Clicks28 + Hits28 + Misses28 + Score28 + Accuracy28 + Clicks29 + Hits29 + Misses29 + Score29 + Accuracy29 + Clicks30 + Hits30 + Misses30 + Score30 + Accuracy30 + Clicks31 + Hits31 + Misses31 + Score31 + Accuracy31 + Clicks32 + Hits32 + Misses32 + Score32 + Accuracy32, center = TRUE) +
+lf(b ~ 0 + Monolingual + Failedclass + Age + Female, cmc = FALSE)
+
+# Specifying priors 
+#TODO: intercept prior normal(-2,1)
+priors <- c(
+  prior(horseshoe(1), class = "b", nlpar = "a"),
+  prior(normal(0, 2.5*0.3109777/0.9998264), coef = "Female", nlpar = "b"),
+  prior(normal(0, 2.5*0.3109777/0.8841844), coef = "Monolingual", nlpar = "b"),
+  prior(normal(0, 2.5*0.3109777/0.7845354), coef = "Failedclass", nlpar = "b"),
+  prior(normal(0, 2.5*0.3109777/1), coef = "Age", nlpar = "b")
+)
+
+# Specifying the model
+start_time <- Sys.time()
+
+bayesian_model_without_missrates <- brm(formula = formula,
+           prior = priors,
+           family = bernoulli(link = 'logit'),
+           data = training
+           )
+
+end_time <- Sys.time()
+
+log_runtime(start_time, end_time, "m_allvariables_horseshoe_gelman_missratesremoved", log_file_with_path)
+
+saveRDS(bayesian_model_without_missrates, file = here("models", "m_allvariables_horseshoe_gelman_missratesremoved.rds"))
+```
+
+```{r, echo = FALSE}
+# Getting loo for each model
+loo_model1 <- loo(bayesian_model_without_missrates)
+loo_model2 <- loo(bayesian_model)
+
+# Compare models using LOO
+comparison <- loo_compare(loo_model1, loo_model2)
+
+# Print the comparison
+print(comparison)
+```
+
+Conclusion: Excluding missrates makes sense.
+
+4.3 - Excluding Score
+
+Score is probably just a linear combination of other recorded game variables.
+
+
+```{r}
+
+# Specifying formula
+formula <- bf(Dyslexia ~ a + b, nl = TRUE) +
+  lf(a ~ Clicks1 + Hits1 + Misses1 + Accuracy1 + Missrate1 +
+    Clicks2 + Hits2 + Misses2 + Accuracy2 + Missrate2 +
+    Clicks3 + Hits3 + Misses3 + Accuracy3 + Missrate3 +
+    Clicks4 + Hits4 + Misses4 + Accuracy4 + Missrate4 +
+    Clicks5 + Hits5 + Misses5 + Accuracy5 + Missrate5 +
+    Clicks6 + Hits6 + Misses6 + Accuracy6 + Missrate6 +
+    Clicks7 + Hits7 + Misses7 + Accuracy7 + Missrate7 +
+    Clicks8 + Hits8 + Misses8 + Accuracy8 + Missrate8 +
+    Clicks9 + Hits9 + Misses9 + Accuracy9 + Missrate9 +
+    Clicks10 + Hits10 + Misses10 + Accuracy10 + Missrate10 +
+    Clicks11 + Hits11 + Misses11 + Accuracy11 + Missrate11 +
+    Clicks12 + Hits12 + Misses12 + Accuracy12 + Missrate12 +
+    Clicks13 + Hits13 + Misses13 + Accuracy13 + Missrate13 +
+    Clicks14 + Hits14 + Misses14 + Accuracy14 + Missrate14 +
+    Clicks15 + Hits15 + Misses15 + Accuracy15 + Missrate15 +
+    Clicks16 + Hits16 + Misses16 + Accuracy16 + Missrate16 +
+    Clicks17 + Hits17 + Misses17 + Accuracy17 + Missrate17 +
+    Clicks18 + Hits18 + Misses18 + Accuracy18 + Missrate18 +
+    Clicks19 + Hits19 + Misses19 + Accuracy19 + Missrate19 +
+    Clicks20 + Hits20 + Misses20 + Accuracy20 + Missrate20 +
+    Clicks21 + Hits21 + Misses21 + Accuracy21 + Missrate21 +
+    Clicks22 + Hits22 + Misses22 + Accuracy22 + Missrate22 +
+    Clicks23 + Hits23 + Misses23 + Accuracy23 + Missrate23 +
+    Clicks24 + Hits24 + Misses24 + Accuracy24 + Missrate24 +
+    Clicks25 + Hits25 + Misses25 + Accuracy25 + Missrate25 +
+    Clicks26 + Hits26 + Misses26 + Accuracy26 + Missrate26 +
+    Clicks27 + Hits27 + Misses27 + Accuracy27 + Missrate27 +
+    Clicks28 + Hits28 + Misses28 + Accuracy28 + Missrate28 +
+    Clicks29 + Hits29 + Misses29 + Accuracy29 + Missrate29 +
+    Clicks30 + Hits30 + Misses30 + Accuracy30 + Missrate30 +
+    Clicks31 + Hits31 + Misses31 + Accuracy31 + Missrate31 +
+    Clicks32 + Hits32 + Misses32 + Accuracy32 + Missrate32,
+    center = TRUE) +
+lf(b ~ 0 + Monolingual + Failedclass + Age + Female, cmc = FALSE)
+
+# Specifying priors 
+#TODO: intercept prior normal(-2,1)
+priors <- c(
+  prior(horseshoe(1), class = "b", nlpar = "a"),
+  prior(normal(0, 2.5*0.3109777/0.9998264), coef = "Female", nlpar = "b"),
+  prior(normal(0, 2.5*0.3109777/0.8841844), coef = "Monolingual", nlpar = "b"),
+  prior(normal(0, 2.5*0.3109777/0.7845354), coef = "Failedclass", nlpar = "b"),
+  prior(normal(0, 2.5*0.3109777/1), coef = "Age", nlpar = "b")
+)
+
+# Specifying the model
+start_time <- Sys.time()
+
+bayesian_model_without_scores <- brm(formula = formula,
+           prior = priors,
+           family = bernoulli(link = 'logit'),
+           data = training
+           )
+
+end_time <- Sys.time()
+
+log_runtime(start_time, end_time, "m_allvariables_horseshoe_gelman_scoresremoved", log_file_with_path)
+
+saveRDS(bayesian_model_without_scores, file = here("models", "m_allvariables_horseshoe_gelman_scoresremoved.rds"))
+```
+
+```{r, echo = FALSE}
+# Getting loo for each model
+loo_model1 <- loo(bayesian_model_without_scores)
+loo_model2 <- loo(bayesian_model)
+
+# Compare models using LOO
+comparison <- loo_compare(loo_model1, loo_model2)
+
+# Print the comparison
+print(comparison)
+```
+
+Conclusion: Dropping score is not a good idea? Its very close though.
