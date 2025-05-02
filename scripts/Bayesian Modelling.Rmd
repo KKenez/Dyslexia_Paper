@@ -354,3 +354,397 @@ print(comparison)
 ```
 
 Conclusion: Dropping score is not a good idea? Its very close though.
+
+4.4 - Excluding Accuracy
+
+Accuracy is also a linear combination of other predictors.
+
+```{r}
+
+# Specifying formula
+formula <- bf(Dyslexia ~ a + b, nl = TRUE) +
+  lf(a ~ Clicks1 + Hits1 + Misses1 + Score1 + Missrate1 +
+    Clicks2 + Hits2 + Misses2 + Score2 + Missrate2 +
+    Clicks3 + Hits3 + Misses3 + Score3 + Missrate3 +
+    Clicks4 + Hits4 + Misses4 + Score4 + Missrate4 +
+    Clicks5 + Hits5 + Misses5 + Score5 + Missrate5 +
+    Clicks6 + Hits6 + Misses6 + Score6 + Missrate6 +
+    Clicks7 + Hits7 + Misses7 + Score7 + Missrate7 +
+    Clicks8 + Hits8 + Misses8 + Score8 + Missrate8 +
+    Clicks9 + Hits9 + Misses9 + Score9 + Missrate9 +
+    Clicks10 + Hits10 + Misses10 + Score10 + Missrate10 +
+    Clicks11 + Hits11 + Misses11 + Score11 + Missrate11 +
+    Clicks12 + Hits12 + Misses12 + Score12 + Missrate12 +
+    Clicks13 + Hits13 + Misses13 + Score13 + Missrate13 +
+    Clicks14 + Hits14 + Misses14 + Score14 + Missrate14 +
+    Clicks15 + Hits15 + Misses15 + Score15 + Missrate15 +
+    Clicks16 + Hits16 + Misses16 + Score16 + Missrate16 +
+    Clicks17 + Hits17 + Misses17 + Score17 + Missrate17 +
+    Clicks18 + Hits18 + Misses18 + Score18 + Missrate18 +
+    Clicks19 + Hits19 + Misses19 + Score19 + Missrate19 +
+    Clicks20 + Hits20 + Misses20 + Score20 + Missrate20 +
+    Clicks21 + Hits21 + Misses21 + Score21 + Missrate21 +
+    Clicks22 + Hits22 + Misses22 + Score22 + Missrate22 +
+    Clicks23 + Hits23 + Misses23 + Score23 + Missrate23 +
+    Clicks24 + Hits24 + Misses24 + Score24 + Missrate24 +
+    Clicks25 + Hits25 + Misses25 + Score25 + Missrate25 +
+    Clicks26 + Hits26 + Misses26 + Score26 + Missrate26 +
+    Clicks27 + Hits27 + Misses27 + Score27 + Missrate27 +
+    Clicks28 + Hits28 + Misses28 + Score28 + Missrate28 +
+    Clicks29 + Hits29 + Misses29 + Score29 + Missrate29 +
+    Clicks30 + Hits30 + Misses30 + Score30 + Missrate30 +
+    Clicks31 + Hits31 + Misses31 + Score31 + Missrate31 +
+    Clicks32 + Hits32 + Misses32 + Score32 + Missrate32,
+    center = TRUE) +
+lf(b ~ 0 + Monolingual + Failedclass + Age + Female, cmc = FALSE)
+
+# Specifying priors 
+#TODO: intercept prior normal(-2,1)
+priors <- c(
+  prior(horseshoe(1), class = "b", nlpar = "a"),
+  prior(normal(0, 2.5*0.3109777/0.9998264), coef = "Female", nlpar = "b"),
+  prior(normal(0, 2.5*0.3109777/0.8841844), coef = "Monolingual", nlpar = "b"),
+  prior(normal(0, 2.5*0.3109777/0.7845354), coef = "Failedclass", nlpar = "b"),
+  prior(normal(0, 2.5*0.3109777/1), coef = "Age", nlpar = "b")
+)
+
+# Specifying the model
+start_time <- Sys.time()
+
+bayesian_model_without_accuracy <- brm(formula = formula,
+           prior = priors,
+           family = bernoulli(link = 'logit'),
+           data = training
+           )
+
+end_time <- Sys.time()
+
+log_runtime(start_time, end_time, "m_allvariables_horseshoe_gelman_accuracyremoved", log_file_with_path)
+
+saveRDS(bayesian_model_without_accuracy, file = here("models", "m_allvariables_horseshoe_gelman_accuracyremoved.rds"))
+```
+
+```{r, echo = FALSE}
+# Getting loo for each model
+loo_model1 <- loo(bayesian_model_without_accuracy)
+loo_model2 <- loo(bayesian_model)
+
+# Compare models using LOO
+comparison <- loo_compare(loo_model1, loo_model2)
+
+# Print the comparison
+print(comparison)
+```
+
+4.5 - Excluding all that made sense
+
+Excluding Accuracy, Missrate and Scores
+
+```{r}
+
+# Specifying formula
+formula <- bf(Dyslexia ~ a + b, nl = TRUE) +
+  lf(a ~ Clicks1 + Hits1 + Misses1 +
+    Clicks2 + Hits2 + Misses2 +
+    Clicks3 + Hits3 + Misses3 +
+    Clicks4 + Hits4 + Misses4 +
+    Clicks5 + Hits5 + Misses5 +
+    Clicks6 + Hits6 + Misses6 +
+    Clicks7 + Hits7 + Misses7 +
+    Clicks8 + Hits8 + Misses8 +
+    Clicks9 + Hits9 + Misses9 +
+    Clicks10 + Hits10 + Misses10 +
+    Clicks11 + Hits11 + Misses11 +
+    Clicks12 + Hits12 + Misses12 +
+    Clicks13 + Hits13 + Misses13 +
+    Clicks14 + Hits14 + Misses14 +
+    Clicks15 + Hits15 + Misses15 +
+    Clicks16 + Hits16 + Misses16 +
+    Clicks17 + Hits17 + Misses17 +
+    Clicks18 + Hits18 + Misses18 +
+    Clicks19 + Hits19 + Misses19 +
+    Clicks20 + Hits20 + Misses20 +
+    Clicks21 + Hits21 + Misses21 +
+    Clicks22 + Hits22 + Misses22 +
+    Clicks23 + Hits23 + Misses23 +
+    Clicks24 + Hits24 + Misses24 +
+    Clicks25 + Hits25 + Misses25 +
+    Clicks26 + Hits26 + Misses26 +
+    Clicks27 + Hits27 + Misses27 +
+    Clicks28 + Hits28 + Misses28 +
+    Clicks29 + Hits29 + Misses29 +
+    Clicks30 + Hits30 + Misses30 +
+    Clicks31 + Hits31 + Misses31 +
+    Clicks32 + Hits32 + Misses32,
+    center = TRUE) +
+lf(b ~ 0 + Monolingual + Failedclass + Age + Female, cmc = FALSE)
+
+# Specifying priors 
+#TODO: intercept prior normal(-2,1)
+priors <- c(
+  prior(horseshoe(1), class = "b", nlpar = "a"),
+  prior(normal(0, 2.5*0.3109777/0.9998264), coef = "Female", nlpar = "b"),
+  prior(normal(0, 2.5*0.3109777/0.8841844), coef = "Monolingual", nlpar = "b"),
+  prior(normal(0, 2.5*0.3109777/0.7845354), coef = "Failedclass", nlpar = "b"),
+  prior(normal(0, 2.5*0.3109777/1), coef = "Age", nlpar = "b")
+)
+
+# Specifying the model
+start_time <- Sys.time()
+
+bayesian_model_corrected_for_linear_combinations <- brm(formula = formula,
+           prior = priors,
+           family = bernoulli(link = 'logit'),
+           data = training
+           )
+
+end_time <- Sys.time()
+
+log_runtime(start_time, end_time, "m_allvariables_horseshoe_gelman_fullycorrected", log_file_with_path)
+
+saveRDS(bayesian_model_corrected_for_linear_combinations, file = here("models", "m_allvariables_horseshoe_gelman_fullycorrected.rds"))
+```
+
+```{r, echo = FALSE}
+# Getting loo for each model
+loo_model1 <- loo(bayesian_model_corrected_for_linear_combinations)
+loo_model2 <- loo(bayesian_model)
+
+# Compare models using LOO
+comparison <- loo_compare(loo_model1, loo_model2)
+
+# Print the comparison
+print(comparison)
+```
+
+Conclusion: It makes sense to exclude all the other stuff, the only real source of information is Clicks Hits and Misses. (One would think by knowing two of these we get the third but that is incorrect.. somehow.)
+
+5 - Model with game variables and background variables' interactions. (Bruno's idea model)
+
+```{r}
+
+# Specifying formula
+formula <- bf(Dyslexia ~ a + b, nl = TRUE) +
+  lf(a ~ Clicks1 + Clicks1:Age + Clicks1:Monolingual + Clicks1:Failedclass +
+    Hits1 + Hits1:Age + Hits1:Monolingual + Hits1:Failedclass +
+    Misses1 + Misses1:Age + Misses1:Monolingual + Misses1:Failedclass +
+    Clicks2 + Clicks2:Age + Clicks2:Monolingual + Clicks2:Failedclass +
+    Hits2 + Hits2:Age + Hits2:Monolingual + Hits2:Failedclass +
+    Misses2 + Misses2:Age + Misses2:Monolingual + Misses2:Failedclass +
+    Clicks3 + Clicks3:Age + Clicks3:Monolingual + Clicks3:Failedclass +
+    Hits3 + Hits3:Age + Hits3:Monolingual + Hits3:Failedclass +
+    Misses3 + Misses3:Age + Misses3:Monolingual + Misses3:Failedclass +
+    Clicks4 + Clicks4:Age + Clicks4:Monolingual + Clicks4:Failedclass +
+    Hits4 + Hits4:Age + Hits4:Monolingual + Hits4:Failedclass +
+    Misses4 + Misses4:Age + Misses4:Monolingual + Misses4:Failedclass +
+    Clicks5 + Clicks5:Age + Clicks5:Monolingual + Clicks5:Failedclass +
+    Hits5 + Hits5:Age + Hits5:Monolingual + Hits5:Failedclass +
+    Misses5 + Misses5:Age + Misses5:Monolingual + Misses5:Failedclass +
+    Clicks6 + Clicks6:Age + Clicks6:Monolingual + Clicks6:Failedclass +
+    Hits6 + Hits6:Age + Hits6:Monolingual + Hits6:Failedclass +
+    Misses6 + Misses6:Age + Misses6:Monolingual + Misses6:Failedclass +
+    Clicks7 + Clicks7:Age + Clicks7:Monolingual + Clicks7:Failedclass +
+    Hits7 + Hits7:Age + Hits7:Monolingual + Hits7:Failedclass +
+    Misses7 + Misses7:Age + Misses7:Monolingual + Misses7:Failedclass +
+    Clicks8 + Clicks8:Age + Clicks8:Monolingual + Clicks8:Failedclass +
+    Hits8 + Hits8:Age + Hits8:Monolingual + Hits8:Failedclass +
+    Misses8 + Misses8:Age + Misses8:Monolingual + Misses8:Failedclass +
+    Clicks9 + Clicks9:Age + Clicks9:Monolingual + Clicks9:Failedclass +
+    Hits9 + Hits9:Age + Hits9:Monolingual + Hits9:Failedclass +
+    Misses9 + Misses9:Age + Misses9:Monolingual + Misses9:Failedclass +
+    Clicks10 + Clicks10:Age + Clicks10:Monolingual + Clicks10:Failedclass +
+    Hits10 + Hits10:Age + Hits10:Monolingual + Hits10:Failedclass +
+    Misses10 + Misses10:Age + Misses10:Monolingual + Misses10:Failedclass +
+    Clicks11 + Clicks11:Age + Clicks11:Monolingual + Clicks11:Failedclass +
+    Hits11 + Hits11:Age + Hits11:Monolingual + Hits11:Failedclass +
+    Misses11 + Misses11:Age + Misses11:Monolingual + Misses11:Failedclass +
+    Clicks12 + Clicks12:Age + Clicks12:Monolingual + Clicks12:Failedclass +
+    Hits12 + Hits12:Age + Hits12:Monolingual + Hits12:Failedclass +
+    Misses12 + Misses12:Age + Misses12:Monolingual + Misses12:Failedclass +
+    Clicks13 + Clicks13:Age + Clicks13:Monolingual + Clicks13:Failedclass +
+    Hits13 + Hits13:Age + Hits13:Monolingual + Hits13:Failedclass +
+    Misses13 + Misses13:Age + Misses13:Monolingual + Misses13:Failedclass +
+    Clicks14 + Clicks14:Age + Clicks14:Monolingual + Clicks14:Failedclass +
+    Hits14 + Hits14:Age + Hits14:Monolingual + Hits14:Failedclass +
+    Misses14 + Misses14:Age + Misses14:Monolingual + Misses14:Failedclass +
+    Clicks15 + Clicks15:Age + Clicks15:Monolingual + Clicks15:Failedclass +
+    Hits15 + Hits15:Age + Hits15:Monolingual + Hits15:Failedclass +
+    Misses15 + Misses15:Age + Misses15:Monolingual + Misses15:Failedclass +
+    Clicks16 + Clicks16:Age + Clicks16:Monolingual + Clicks16:Failedclass +
+    Hits16 + Hits16:Age + Hits16:Monolingual + Hits16:Failedclass +
+    Misses16 + Misses16:Age + Misses16:Monolingual + Misses16:Failedclass +
+    Clicks17 + Clicks17:Age + Clicks17:Monolingual + Clicks17:Failedclass +
+    Hits17 + Hits17:Age + Hits17:Monolingual + Hits17:Failedclass +
+    Misses17 + Misses17:Age + Misses17:Monolingual + Misses17:Failedclass +
+    Clicks18 + Clicks18:Age + Clicks18:Monolingual + Clicks18:Failedclass +
+    Hits18 + Hits18:Age + Hits18:Monolingual + Hits18:Failedclass +
+    Misses18 + Misses18:Age + Misses18:Monolingual + Misses18:Failedclass +
+    Clicks19 + Clicks19:Age + Clicks19:Monolingual + Clicks19:Failedclass +
+    Hits19 + Hits19:Age + Hits19:Monolingual + Hits19:Failedclass +
+    Misses19 + Misses19:Age + Misses19:Monolingual + Misses19:Failedclass +
+    Clicks20 + Clicks20:Age + Clicks20:Monolingual + Clicks20:Failedclass +
+    Hits20 + Hits20:Age + Hits20:Monolingual + Hits20:Failedclass +
+    Misses20 + Misses20:Age + Misses20:Monolingual + Misses20:Failedclass +
+    Clicks21 + Clicks21:Age + Clicks21:Monolingual + Clicks21:Failedclass +
+    Hits21 + Hits21:Age + Hits21:Monolingual + Hits21:Failedclass +
+    Misses21 + Misses21:Age + Misses21:Monolingual + Misses21:Failedclass +
+    Clicks22 + Clicks22:Age + Clicks22:Monolingual + Clicks22:Failedclass +
+    Hits22 + Hits22:Age + Hits22:Monolingual + Hits22:Failedclass +
+    Misses22 + Misses22:Age + Misses22:Monolingual + Misses22:Failedclass +
+    Clicks23 + Clicks23:Age + Clicks23:Monolingual + Clicks23:Failedclass +
+    Hits23 + Hits23:Age + Hits23:Monolingual + Hits23:Failedclass +
+    Misses23 + Misses23:Age + Misses23:Monolingual + Misses23:Failedclass +
+    Clicks24 + Clicks24:Age + Clicks24:Monolingual + Clicks24:Failedclass +
+    Hits24 + Hits24:Age + Hits24:Monolingual + Hits24:Failedclass +
+    Misses24 + Misses24:Age + Misses24:Monolingual + Misses24:Failedclass +
+    Clicks25 + Clicks25:Age + Clicks25:Monolingual + Clicks25:Failedclass +
+    Hits25 + Hits25:Age + Hits25:Monolingual + Hits25:Failedclass +
+    Misses25 + Misses25:Age + Misses25:Monolingual + Misses25:Failedclass +
+    Clicks26 + Clicks26:Age + Clicks26:Monolingual + Clicks26:Failedclass +
+    Hits26 + Hits26:Age + Hits26:Monolingual + Hits26:Failedclass +
+    Misses26 + Misses26:Age + Misses26:Monolingual + Misses26:Failedclass +
+    Clicks27 + Clicks27:Age + Clicks27:Monolingual + Clicks27:Failedclass +
+    Hits27 + Hits27:Age + Hits27:Monolingual + Hits27:Failedclass +
+    Misses27 + Misses27:Age + Misses27:Monolingual + Misses27:Failedclass +
+    Clicks28 + Clicks28:Age + Clicks28:Monolingual + Clicks28:Failedclass +
+    Hits28 + Hits28:Age + Hits28:Monolingual + Hits28:Failedclass +
+    Misses28 + Misses28:Age + Misses28:Monolingual + Misses28:Failedclass +
+    Clicks29 + Clicks29:Age + Clicks29:Monolingual + Clicks29:Failedclass +
+    Hits29 + Hits29:Age + Hits29:Monolingual + Hits29:Failedclass +
+    Misses29 + Misses29:Age + Misses29:Monolingual + Misses29:Failedclass +
+    Clicks30 + Clicks30:Age + Clicks30:Monolingual + Clicks30:Failedclass +
+    Hits30 + Hits30:Age + Hits30:Monolingual + Hits30:Failedclass +
+    Misses30 + Misses30:Age + Misses30:Monolingual + Misses30:Failedclass +
+    Clicks31 + Clicks31:Age + Clicks31:Monolingual + Clicks31:Failedclass +
+    Hits31 + Hits31:Age + Hits31:Monolingual + Hits31:Failedclass +
+    Misses31 + Misses31:Age + Misses31:Monolingual + Misses31:Failedclass +
+    Clicks32 + Clicks32:Age + Clicks32:Monolingual + Clicks32:Failedclass +
+    Hits32 + Hits32:Age + Hits32:Monolingual + Hits32:Failedclass +
+    Misses32 + Misses32:Age + Misses32:Monolingual + Misses32:Failedclass,
+    center = TRUE) +
+lf(b ~ 0 + Monolingual + Failedclass + Age + Female, cmc = FALSE)
+
+# Specifying priors 
+#TODO: intercept prior normal(-2,1)
+priors <- c(
+  prior(horseshoe(1), class = "b", nlpar = "a"),
+  prior(normal(0, 2.5*0.3109777/0.9998264), coef = "Female", nlpar = "b"),
+  prior(normal(0, 2.5*0.3109777/0.8841844), coef = "Monolingual", nlpar = "b"),
+  prior(normal(0, 2.5*0.3109777/0.7845354), coef = "Failedclass", nlpar = "b"),
+  prior(normal(0, 2.5*0.3109777/1), coef = "Age", nlpar = "b")
+)
+
+# Specifying the model
+start_time <- Sys.time()
+
+bayesian_model_gameinteractions <- brm(formula = formula,
+           prior = priors,
+           family = bernoulli(link = 'logit'),
+           data = training
+           )
+
+end_time <- Sys.time()
+
+log_runtime(start_time, end_time, "m_linearcombinationscorrected_gelman_horseshoe_interactions", log_file_with_path)
+
+saveRDS(bayesian_model_gameinteractions, file = here("models", "m_linearcombinationscorrected_gelman_horseshoe_interactions.rds"))
+```
+
+```{r, echo = FALSE}
+# Getting loo for each model
+loo_model1 <- loo(bayesian_model_gameinteractions)
+loo_model2 <- loo(bayesian_model)
+
+# Compare models using LOO
+comparison <- loo_compare(loo_model1, loo_model2)
+
+# Print the comparison
+print(comparison)
+```
+
+```{r}
+model <- bayesian_model_corrected_for_linear_combinations
+
+# Predict probabilities using `fitted`
+model_predicted_probabilities <- fitted(model, newdata = validation_scaled)
+predicted_probs <- model_predicted_probabilities[, 1]  # Extract the mean probabilities
+
+# Convert probabilities to binary predictions using a threshold (e.g., 0.24)
+predicted_classes <- ifelse(predicted_probs > 0.24, 1, 0)
+
+# Ensure `predicted_classes` and `validation$Dyslexia_binary` are factors with the same levels
+predicted_classes <- factor(predicted_classes, levels = c(0, 1))
+actual_classes <- factor(validation_scaled$Dyslexia, levels = c(0, 1))
+
+# Check lengths to make sure they match
+if (length(predicted_classes) != length(actual_classes)) {
+  stop("Length mismatch: Predicted length =", length(predicted_classes), 
+       "Actual length =", length(actual_classes))
+}
+
+# Create a confusion matrix
+library(caret)
+cm <- confusionMatrix(predicted_classes, actual_classes)
+
+# Print the confusion matrix
+print(cm)
+```
+
+Conclusion: Loo says the model with corrected variables and interaction terms does better. In reality, it predicts 0 everywhere, the shrinkage is too high. Predicted probs never really exceed 0.04ish. A solution could be lowering the global shrinkage parameter in the reg. horseshoe prior. Or punishing the model more for saying 0? Im not sure how to do that but Ill try to find out.
+
+```{r}
+p0 <- 70          # you expect ~10 important predictors
+D <- 192         # you have 100 predictors
+n <- 5000         # sample size
+sigma <- 1        # logistic regression = use 1
+
+tau0 <- (p0 / (D - p0)) * (sigma / sqrt(n))
+tau0
+```
+5.1 - Trying to relax the global shrinkage
+
+```{r}
+
+# Specifying formula
+formula <- bf(Dyslexia ~ a + b, nl = TRUE) +
+  lf(a ~ Clicks1 + Hits1 + Misses1 + Score1 + Accuracy1 + Missrate1 + Clicks2 + Hits2 + Misses2 + Score2 + Accuracy2 + Missrate2 + Clicks3 + Hits3 + Misses3 + Score3 + Accuracy3 + Missrate3 + Clicks4 + Hits4 + Misses4 + Score4 + Accuracy4 + Missrate4 + Clicks5 + Hits5 + Misses5 + Score5 + Accuracy5 + Missrate5 + Clicks6 + Hits6 + Misses6 + Score6 + Accuracy6 + Missrate6 + Clicks7 + Hits7 + Misses7 + Score7 + Accuracy7 + Missrate7 + Clicks8 + Hits8 + Misses8 + Score8 + Accuracy8 + Missrate8 + Clicks9 + Hits9 + Misses9 + Score9 + Accuracy9 + Missrate9 + Clicks10 + Hits10 + Misses10 + Score10 + Accuracy10 + Missrate10 + Clicks11 + Hits11 + Misses11 + Score11 + Accuracy11 + Missrate11 + Clicks12 + Hits12 + Misses12 + Score12 + Accuracy12 + Missrate12 + Clicks13 + Hits13 + Misses13 + Score13 + Accuracy13 + Missrate13 + Clicks14 + Hits14 + Misses14 + Score14 + Accuracy14 + Missrate14 + Clicks15 + Hits15 + Misses15 + Score15 + Accuracy15 + Missrate15 + Clicks16 + Hits16 + Misses16 + Score16 + Accuracy16 + Missrate16 + Clicks17 + Hits17 + Misses17 + Score17 + Accuracy17 + Missrate17 + Clicks18 + Hits18 + Misses18 + Score18 + Accuracy18 + Missrate18 + Clicks19 + Hits19 + Misses19 + Score19 + Accuracy19 + Missrate19 + Clicks20 + Hits20 + Misses20 + Score20 + Accuracy20 + Missrate20 + Clicks21 + Hits21 + Misses21 + Score21 + Accuracy21 + Missrate21 + Clicks22 + Hits22 + Misses22 + Score22 + Accuracy22 + Missrate22 + Clicks23 + Hits23 + Misses23 + Score23 + Accuracy23 + Missrate23 + Clicks24 + Hits24 + Misses24 + Score24 + Accuracy24 + Missrate24 + Clicks25 + Hits25 + Misses25 + Score25 + Accuracy25 + Missrate25 + Clicks26 + Hits26 + Misses26 + Score26 + Accuracy26 + Missrate26 + Clicks27 + Hits27 + Misses27 + Score27 + Accuracy27 + Missrate27 + Clicks28 + Hits28 + Misses28 + Score28 + Accuracy28 + Missrate28 + Clicks29 + Hits29 + Misses29 + Score29 + Accuracy29 + Missrate29 + Clicks30 + Hits30 + Misses30 + Score30 + Accuracy30 + Missrate30 + Clicks31 + Hits31 + Misses31 + Score31 + Accuracy31 + Missrate31 + Clicks32 + Hits32 + Misses32 + Score32 + Accuracy32, center = TRUE) +
+  lf(b ~ 0 + Monolingual + Failedclass + Age + Female, cmc = FALSE)
+
+# Specifying priors 
+#TODO: intercept prior normal(-2,1)
+priors <- c(
+  prior(horseshoe(df = 3, scale_global = 0.2), class = "b", nlpar = "a"),
+  prior(normal(0, 2.5*0.3109777/0.9998264), coef = "Female", nlpar = "b"),
+  prior(normal(0, 2.5*0.3109777/0.8841844), coef = "Monolingual", nlpar = "b"),
+  prior(normal(0, 2.5*0.3109777/0.7845354), coef = "Failedclass", nlpar = "b"),
+  prior(normal(0, 2.5*0.3109777/1), coef = "Age", nlpar = "b")
+)
+
+# Specifying the model
+start_time <- Sys.time()
+
+bayesian_model_relaxedglobalshrinkage <- brm(formula = formula,
+           prior = priors,
+           family = bernoulli(link = 'logit'),
+           data = training
+           )
+
+end_time <- Sys.time()
+
+log_runtime(start_time, end_time, "m_allvariables_relaxedhorseshoe_gelman", log_file_with_path)
+
+saveRDS(bayesian_model_relaxedglobalshrinkage, file = here("models", "m_allvariables_relaxedhorseshoe_gelman.rds"))
+```
+
+```{r, echo = FALSE}
+# Getting loo for each model
+loo_model1 <- loo(bayesian_model_relaxedglobalshrinkage)
+loo_model2 <- loo(bayesian_model)
+
+# Compare models using LOO
+comparison <- loo_compare(loo_model1, loo_model2)
+
+# Print the comparison
+print(comparison)
+```
+Conclusion - Maybe good?? Ill check
