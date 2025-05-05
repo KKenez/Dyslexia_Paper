@@ -1,0 +1,74 @@
+---
+title: "Model Behaviour Exploration"
+author: "Kenéz"
+date: "2025-05-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+set.seed(1337)
+
+library(dplyr)
+library(brms)
+library(ggplot2)
+library(tidyr)
+library(glue) 
+library(caret)
+library(tidyverse)
+library(randomForest)
+library(caTools)
+library(bayesplot)
+library(glmnet)
+library(here)
+library(priorsense)
+
+log_file_with_path <- here::here("results", "runtime_log.txt")
+
+source(here::here("scripts", "functions.R"))
+```
+
+In this notebook I explore the false negatives and false positives when predicting the validation_scaled set. The model I use will vary, but I will try to keep a log of the results.
+
+#1 - False negatives
+
+```{r}
+# Code chunk to check confusion matrix and performance. Change model to your model.
+model <- bayesian_model
+
+# Predict probabilities using `fitted`
+model_predicted_probabilities <- fitted(model, newdata = validation_scaled)
+predicted_probs <- model_predicted_probabilities[, 1]  # Extract the mean probabilities
+
+# Convert probabilities to binary predictions using a threshold (e.g., 0.24)
+predicted_classes <- ifelse(predicted_probs > 0.24, 1, 0)
+
+# Ensure `predicted_classes` and `validation$Dyslexia_binary` are factors with the same levels
+predicted_classes <- factor(predicted_classes, levels = c(0, 1))
+actual_classes <- factor(validation_scaled$Dyslexia, levels = c(0, 1))
+
+# Check lengths to make sure they match
+if (length(predicted_classes) != length(actual_classes)) {
+  stop("Length mismatch: Predicted length =", length(predicted_classes), 
+       "Actual length =", length(actual_classes))
+}
+
+# Create a confusion matrix
+library(caret)
+cm <- confusionMatrix(predicted_classes, actual_classes)
+
+# Print the confusion matrix
+print(cm)
+```
+```{r}
+# First, find which entries are false negatives
+false_negatives_idx <- which(predicted_classes == 0 & actual_classes == 1)
+
+# Now, subset the validation_scaled dataframe
+false_negatives_df <- validation_scaled[false_negatives_idx, ]
+
+# View the result
+print(false_negatives_df)
+```
+It seems like the model really likes to predict (Monolingual = -1 , Failedclass = 1) kids as Dyslexic. For now I'll leave it here

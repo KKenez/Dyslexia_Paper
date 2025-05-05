@@ -662,34 +662,6 @@ comparison <- loo_compare(loo_model1, loo_model2)
 print(comparison)
 ```
 
-```{r}
-model <- bayesian_model_corrected_for_linear_combinations
-
-# Predict probabilities using `fitted`
-model_predicted_probabilities <- fitted(model, newdata = validation_scaled)
-predicted_probs <- model_predicted_probabilities[, 1]  # Extract the mean probabilities
-
-# Convert probabilities to binary predictions using a threshold (e.g., 0.24)
-predicted_classes <- ifelse(predicted_probs > 0.24, 1, 0)
-
-# Ensure `predicted_classes` and `validation$Dyslexia_binary` are factors with the same levels
-predicted_classes <- factor(predicted_classes, levels = c(0, 1))
-actual_classes <- factor(validation_scaled$Dyslexia, levels = c(0, 1))
-
-# Check lengths to make sure they match
-if (length(predicted_classes) != length(actual_classes)) {
-  stop("Length mismatch: Predicted length =", length(predicted_classes), 
-       "Actual length =", length(actual_classes))
-}
-
-# Create a confusion matrix
-library(caret)
-cm <- confusionMatrix(predicted_classes, actual_classes)
-
-# Print the confusion matrix
-print(cm)
-```
-
 Conclusion: Loo says the model with corrected variables and interaction terms does better. In reality, it predicts 0 everywhere, the shrinkage is too high. Predicted probs never really exceed 0.04ish. A solution could be lowering the global shrinkage parameter in the reg. horseshoe prior. Or punishing the model more for saying 0? Im not sure how to do that but Ill try to find out.
 
 ```{r}
@@ -747,4 +719,44 @@ comparison <- loo_compare(loo_model1, loo_model2)
 # Print the comparison
 print(comparison)
 ```
-Conclusion - Maybe good?? Ill check
+Conclusion - Lower performance on the validation set when compared to the original model. The problem of too low predictions has disappeared, however, so that's a step in the right direction.
+
+```{r}
+# Code chunk to check predicted probabilities of any model. Change model to your model.
+model <- yourmodel
+
+bayesian_model_predicted_probabilities <- fitted(model, newdata = validation_scaled)
+bayesian_model_probabilities <- bayesian_model_predicted_probabilities[, 1]
+bayesian_model_probabilities
+```
+
+```{r}
+# Code chunk to check confusion matrix and performance. Change model to your model.
+model <- yourmodel
+
+# Predict probabilities using `fitted`
+model_predicted_probabilities <- fitted(model, newdata = validation_scaled)
+predicted_probs <- model_predicted_probabilities[, 1]  # Extract the mean probabilities
+
+# Convert probabilities to binary predictions using a threshold (e.g., 0.24)
+predicted_classes <- ifelse(predicted_probs > 0.24, 1, 0)
+
+# Ensure `predicted_classes` and `validation$Dyslexia_binary` are factors with the same levels
+predicted_classes <- factor(predicted_classes, levels = c(0, 1))
+actual_classes <- factor(validation_scaled$Dyslexia, levels = c(0, 1))
+
+# Check lengths to make sure they match
+if (length(predicted_classes) != length(actual_classes)) {
+  stop("Length mismatch: Predicted length =", length(predicted_classes), 
+       "Actual length =", length(actual_classes))
+}
+
+# Create a confusion matrix
+library(caret)
+cm <- confusionMatrix(predicted_classes, actual_classes)
+
+# Print the confusion matrix
+print(cm)
+```
+
+
